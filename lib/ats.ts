@@ -10,6 +10,13 @@ export type ResumeSnapshot = {
   education: string;
 };
 
+export type AtsResult = {
+  score: number;
+  summary: string;
+  keywordMatches: string[];
+  missingKeywords: string[];
+};
+
 export type AtsCheck = {
   label: string;
   ok: boolean;
@@ -103,7 +110,6 @@ const stopWords = new Set([
   "been",
   "being",
   "other",
-  "from",
 ]);
 
 function normalizeText(value: string) {
@@ -117,14 +123,14 @@ function normalizeText(value: string) {
 }
 
 function getJobKeywords(jobDescription: string) {
-  const tokens = normalizeText(jobDescription);
-  const counts = new Map<string, number>();
+  const terms = normalizeText(jobDescription);
+  const frequency = new Map<string, number>();
 
-  for (const token of tokens) {
-    counts.set(token, (counts.get(token) ?? 0) + 1);
+  for (const term of terms) {
+    frequency.set(term, (frequency.get(term) ?? 0) + 1);
   }
 
-  return [...counts.entries()]
+  return [...frequency.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([term]) => term)
     .slice(0, 24);
@@ -232,6 +238,12 @@ export function analyzeResumeAgainstJob(resume: ResumeSnapshot, jobDescription: 
   };
 }
 
-export default function placeholder() {
-  return null;
+export function calculateAtsScore(resume: ResumeSnapshot, jobDescription: string): AtsResult {
+  const analysis = analyzeResumeAgainstJob(resume, jobDescription);
+  return {
+    score: analysis.score,
+    summary: analysis.summary,
+    keywordMatches: analysis.keywordMatches,
+    missingKeywords: analysis.missingKeywords,
+  };
 }
