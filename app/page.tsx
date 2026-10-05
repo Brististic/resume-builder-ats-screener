@@ -10,7 +10,7 @@ const defaultResume: ResumeSnapshot = {
   location: "City, State",
   role: "Software Engineer",
   summary:
-    "Results-driven software engineer with 3+ years of experience building scalable web applications, improving performance, and collaborating with cross-functional teams. Strong in JavaScript, TypeScript, backend systems, and customer-facing product delivery.",
+    "Results-driven software engineer with 3+ years of experience building scalable web applications, improving performance, and collaborating with cross-functional teams. Strong in JavaScript, TypeScript, React, Node.js, PostgreSQL, and customer-facing product delivery.",
   skills: "JavaScript, TypeScript, React, Node.js, PostgreSQL, REST APIs, AWS, Git, Agile, Testing, Performance Optimization",
   experience:
     "Software Engineer | Company Name\n- Built and maintained full-stack features used by 10k+ customers across web and mobile products.\n- Improved application response times by 35% by optimizing API calls and frontend rendering.\n- Collaborated with product managers and designers to ship features from discovery to deployment.\n- Wrote unit and integration tests to reduce regressions and improve release confidence.",

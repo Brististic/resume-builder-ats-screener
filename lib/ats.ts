@@ -10,11 +10,19 @@ export type ResumeSnapshot = {
   education: string;
 };
 
-export type AtsResult = {
+export type AtsCheck = {
+  label: string;
+  ok: boolean;
+  message: string;
+};
+
+export type AtsAnalysis = {
   score: number;
   summary: string;
   keywordMatches: string[];
   missingKeywords: string[];
+  checks: AtsCheck[];
+  suggestions: string[];
 };
 
 const stopWords = new Set([
@@ -88,6 +96,14 @@ const stopWords = new Set([
   "those",
   "where",
   "while",
+  "not",
+  "any",
+  "same",
+  "very",
+  "been",
+  "being",
+  "other",
+  "from",
 ]);
 
 function normalizeText(value: string) {
@@ -101,23 +117,25 @@ function normalizeText(value: string) {
 }
 
 function getJobKeywords(jobDescription: string) {
-  const terms = normalizeText(jobDescription);
-  const frequency = new Map<string, number>();
+  const tokens = normalizeText(jobDescription);
+  const counts = new Map<string, number>();
 
-  for (const term of terms) {
-    frequency.set(term, (frequency.get(term) ?? 0) + 1);
+  for (const token of tokens) {
+    counts.set(token, (counts.get(token) ?? 0) + 1);
   }
 
-  return [...frequency.entries()]
-    .filter(([, count]) => count > 0)
+  return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([term]) => term)
-    .slice(0, 20);
+    .slice(0, 24);
 }
 
-export function calculateAtsScore(resume: ResumeSnapshot, jobDescription: string): AtsResult {
+function hasMetrics(text: string) {
+  return /\b\d+(%|\+|x|k|m|\s*(years|months|days|hours|clients|users|projects|teams))\b/i.test(text) || /\b\d+\s*(\+\s*)?(customers|users|clients|projects|teams)\b/i.test(text);
+}
+
+export function analyzeResumeAgainstJob(resume: ResumeSnapshot, jobDescription: string): AtsAnalysis {
   const fullText = [
-    resume.name,
     resume.role,
     resume.summary,
     resume.skills,
@@ -132,9 +150,18 @@ export function calculateAtsScore(resume: ResumeSnapshot, jobDescription: string
   if (jobKeywords.length === 0) {
     return {
       score: 100,
-      summary: "No job description was provided, so the ATS score is set to 100% by default.",
+      summary: "No job description was provided. Score defaults to 100%.",
       keywordMatches: [],
       missingKeywords: [],
+      checks: [
+        { label: "Keyword coverage", ok: true, message: "No job description was entered." },
+        { label: "Impact", ok: true, message: "No content to evaluate yet." },
+        { label: "ATS formatting", ok: true, message: "Basic format is still safe for screening." },
+      ],
+      suggestions: [
+        "Paste a target job description to see keyword gaps.",
+        "Add a tailored summary that mirrors the role's core responsibilities.",
+      ],
     };
   }
 
@@ -142,22 +169,69 @@ export function calculateAtsScore(resume: ResumeSnapshot, jobDescription: string
   const missingKeywords = jobKeywords.filter((keyword) => !resumeTerms.has(keyword));
   const score = Math.min(100, Math.round((keywordMatches.length / jobKeywords.length) * 100));
 
-  let summary = "Your resume is aligned with the role but could use more keyword coverage.";
+  const keywordCoverageOk = score >= 70;
+  const quantifiedImpactOk = hasMetrics(resume.experience) || hasMetrics(resume.summary);
+  const atsSafeFormat = !/\|\|\||\[.*\]|<table|<img|text-box|columns|graphics/i.test(resume.experience + resume.summary + resume.skills);
 
-  if (score >= 80) {
-    summary = "Your resume strongly aligns with the target role and includes most of the important keywords.";
-  } else if (score >= 60) {
-    summary = "Your resume is reasonably aligned, but adding a few more role-specific keywords will improve ATS matching.";
-  } else if (score >= 40) {
-    summary = "Your resume needs stronger keyword coverage to improve ATS matching against the job description.";
-  } else {
-    summary = "Your resume has a weak keyword match to the role. Consider rewording experience and skills to match the job requirements more closely.";
+  const summaryText =
+    score >= 80
+      ? "Your resume aligns strongly with the target role and contains most of the critical keywords."
+      : score >= 60
+        ? "Your resume is reasonably aligned, but adding a few more role-specific keywords will improve ATS matching."
+        : score >= 40
+          ? "Your resume needs stronger keyword coverage to improve ATS matching against the job description."
+          : "Your resume has weak keyword overlap with the role. Tightening language to the job description is recommended.";
+
+  const checks: AtsCheck[] = [
+    {
+      label: "Keyword coverage",
+      ok: keywordCoverageOk,
+      message: keywordCoverageOk ? "Most critical keywords are present." : "Add more matching terms from the job description.",
+    },
+    {
+      label: "Impact",
+      ok: quantifiedImpactOk,
+      message: quantifiedImpactOk ? "Experience includes measurable outcomes and impact." : "Add numbers, percentages, or scope to show measurable value.",
+    },
+    {
+      label: "ATS formatting",
+      ok: atsSafeFormat,
+      message: atsSafeFormat ? "The format is simple and ATS-friendly." : "Avoid column-heavy or graphic-heavy formatting.",
+    },
+  ];
+
+  const suggestions: string[] = [];
+
+  if (!keywordCoverageOk) {
+    suggestions.push(`Add more of these keywords: ${missingKeywords.slice(0, 5).join(", ")}.`);
+  }
+
+  if (!quantifiedImpactOk) {
+    suggestions.push("Add measurable results such as % improvements, time saved, or scale handled.");
+  }
+
+  if (resume.summary.trim().length < 120) {
+    suggestions.push("Expand the summary with 2–3 tailored statements that mirror the responsibilities in the job description.");
+  }
+
+  if (resume.skills.toLowerCase().includes("skills") || resume.skills.length < 30) {
+    suggestions.push("Turn the skills section into a keyword-rich list of tools, systems, and capabilities tied to the role.");
+  }
+
+  if (suggestions.length === 0) {
+    suggestions.push("This resume is already well aligned. Keep the same structure and apply it to each target role.");
   }
 
   return {
     score,
-    summary,
+    summary: summaryText,
     keywordMatches,
     missingKeywords: missingKeywords.slice(0, 10),
+    checks,
+    suggestions: suggestions.slice(0, 5),
   };
+}
+
+export default function placeholder() {
+  return null;
 }
